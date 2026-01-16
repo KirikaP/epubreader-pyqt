@@ -657,10 +657,37 @@ class MainWindow(QMainWindow):
             self._display_chapter(preserve_position=False)
 
     def _update_toc_selection(self) -> None:
-        if 0 <= self._current_chapter < self._toc_tree.topLevelItemCount():
-            item = self._toc_tree.topLevelItem(self._current_chapter)
-            self._toc_tree.setCurrentItem(item)
-            self._toc_tree.scrollToItem(item)
+        """在目录中选中与当前章节对应的项（优先匹配保存的 chapter_idx）。
+
+        在使用扁平化目录时，TOC 项的数量与章节数量可能不一一对应，直接按索引选中会导致错位，
+        因此先查找具有匹配 `chapter_idx` 的项；若未找到则尝试按索引回退到最接近的项。
+        """
+        count = self._toc_tree.topLevelItemCount()
+        found_item = None
+
+        # 优先查找存储了 chapter_idx 且等于当前章节的项
+        for i in range(count):
+            it = self._toc_tree.topLevelItem(i)
+            try:
+                chapter_idx = it.data(0, Qt.ItemDataRole.UserRole)
+            except Exception:
+                chapter_idx = None
+            if chapter_idx == self._current_chapter:
+                found_item = it
+                break
+
+        # 回退策略：如果没有找到匹配项，按索引尝试选中（如果索引在范围内），否则选中最后一项
+        if not found_item and count > 0:
+            if 0 <= self._current_chapter < count:
+                found_item = self._toc_tree.topLevelItem(self._current_chapter)
+            else:
+                # 选中最接近的有效项
+                idx = max(0, min(count - 1, self._current_chapter))
+                found_item = self._toc_tree.topLevelItem(idx)
+
+        if found_item:
+            self._toc_tree.setCurrentItem(found_item)
+            self._toc_tree.scrollToItem(found_item)
 
     def _display_chapter(self, preserve_position: bool = True) -> None:
         """渲染当前章节内容。

@@ -45,7 +45,24 @@ document.addEventListener('DOMContentLoaded', function() {
         window.bridge = channel.objects.bridge;
     });
 });
+// 忽略发生在滚动条上的点击（避免滚动栏被点击时翻页）
 document.addEventListener('mousedown', function(e) {
+    try {
+        var scrollbarWidth = window.innerWidth - (document.documentElement.clientWidth || document.body.clientWidth || 0);
+        // 如果计算出的滚动条宽度大于 0 且点击位置在窗口右侧滚动条区域，则忽略该事件
+        if (scrollbarWidth > 0 && e.clientX >= window.innerWidth - scrollbarWidth) {
+            return;
+        }
+    } catch (err) {
+        // 发生异常时不影响正常点击处理
+    }
+
+    // 忽略在可编辑输入控件上的点击
+    var tgt = e.target;
+    if (tgt && (tgt.tagName === 'INPUT' || tgt.tagName === 'TEXTAREA' || tgt.isContentEditable)) {
+        return;
+    }
+
     if (window.bridge) {
         if (e.button === 0) window.bridge.onMouseClick('left');
         else if (e.button === 2) window.bridge.onMouseClick('right');

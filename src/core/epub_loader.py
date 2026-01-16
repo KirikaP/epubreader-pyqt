@@ -1,4 +1,4 @@
-"""EPUB文件加载模块"""
+"""EPUB file loading module"""
 
 import os
 import base64
@@ -16,9 +16,9 @@ except ImportError:
 
 
 class EpubLoader:
-    """EPUB文件加载器"""
+    """EPUB file loader"""
 
-    # 支持的图片格式
+    # Supported image MIME types
     _MIME_TYPES: Dict[str, str] = {
         "jpg": "image/jpeg",
         "jpeg": "image/jpeg",
@@ -35,14 +35,14 @@ class EpubLoader:
         self._image_index: Dict[str, Any] = {}
         self._show_images = True
         self._executor = ThreadPoolExecutor(max_workers=2)
-        self._chapter_map: Dict[str, int] = {}  # 新增：章节文件名到索引的映射
+        self._chapter_map: Dict[str, int] = {}  # Added: mapping from chapter filename to index
 
     def load_file(self, filepath: str) -> Tuple[bool, str]:
         """
-        加载EPUB文件
+        Load an EPUB file
 
         Returns:
-            (成功, 标题) 或 (失败, 错误信息)
+            (success, title) or (False, error_message)
         """
         try:
             self._book = epub.read_epub(filepath)
@@ -52,7 +52,7 @@ class EpubLoader:
                 if item.get_type() == ebooklib.ITEM_DOCUMENT
             ]
             
-            # 新增：构建章节文件名到索引的映射
+            # Build mapping from chapter filename to index
             self._chapter_map.clear()
             for i, chapter in enumerate(self._chapters):
                 filename = os.path.basename(chapter.get_name())
@@ -68,7 +68,7 @@ class EpubLoader:
             return False, str(e)
 
     def _build_image_index(self) -> None:
-        """构建图片索引，加速查找"""
+        """Build image index for faster lookup"""
         self._image_index.clear()
         if not self._book:
             return
@@ -76,19 +76,19 @@ class EpubLoader:
         for item in self._book.get_items():
             if item.get_type() == ebooklib.ITEM_IMAGE:
                 name = item.get_name()
-                # 多种路径形式索引
+                # Index multiple path forms
                 self._image_index[name] = item
                 self._image_index[name.split("/")[-1]] = item
                 self._image_index[os.path.basename(name)] = item
 
     def set_image_visibility(self, visible: bool) -> None:
-        """设置图片显示状态"""
+        """Set image visibility state"""
         if self._show_images != visible:
             self._show_images = visible
             self._chapter_cache.clear()
 
     def get_chapter_content(self, index: int) -> Optional[str]:
-        """获取章节HTML内容"""
+        """Get chapter HTML content"""
         if not (0 <= index < len(self._chapters)):
             return None
 
@@ -104,13 +104,13 @@ class EpubLoader:
             return None
 
     def preload_chapters(self, current: int) -> None:
-        """异步预加载相邻章节"""
+        """Asynchronously preload adjacent chapters"""
         for i in range(max(0, current - 1), min(len(self._chapters), current + 2)):
             if i not in self._chapter_cache:
                 self._executor.submit(self.get_chapter_content, i)
 
     def _embed_images(self, html: str) -> str:
-        """将图片引用转换为base64内嵌"""
+        """Convert image references to base64 inline"""
         if not self._book:
             return html
 
@@ -118,10 +118,10 @@ class EpubLoader:
         return pattern.sub(self._replace_image, html)
 
     def _replace_image(self, match: re.Match) -> str:
-        """替换单个图片标签"""
+        """Replace a single image tag"""
         tag, src = match.group(0), match.group(1)
 
-        # 隐藏图片时显示占位符
+        # Show placeholder when images are hidden
         if not self._show_images:
             filename = os.path.basename(unquote(src))
             return (
@@ -152,11 +152,11 @@ class EpubLoader:
         return tag
 
     def get_toc(self) -> list:
-        """获取目录（保持原接口）"""
+        """Get table of contents (preserve original interface)"""
         return self._book.toc if self._book else []
 
     def get_flat_toc(self) -> list:
-        """获取扁平化的目录列表，每个元素为 (标题, 章节索引, 层级)"""
+        """Get a flattened TOC list. Each item is a dict with title, chapter index and level"""
         if not self._book:
             return []
         
@@ -165,14 +165,14 @@ class EpubLoader:
         def process_items(items, level=0):
             for item in items:
                 if hasattr(item, '__iter__') and not isinstance(item, (str, bytes)):
-                    # 这是一个可迭代对象（如元组或列表），可能是嵌套结构
+                    # This is an iterable (tuple/list), may be a nested structure
                     process_items(item, level)
                 else:
-                    # 尝试获取标题和链接
+                    # Try to obtain title and href
                     title = None
                     href = None
                     
-                    # 检查不同类型
+                    # Check different attribute types
                     if hasattr(item, 'title'):
                         title = item.title
                     elif hasattr(item, 'get'):
@@ -189,13 +189,13 @@ class EpubLoader:
                         except:
                             pass
                     
-                    # 如果是 Link 对象（最常见的类型）- 修正为 epub.Link
+                    # If item is a Link (common case), normalize to epub.Link
                     if isinstance(item, epub.Link):
                         title = title or item.title
                         href = href or item.href
                     
                     if title:
-                        # 查找对应的章节索引
+                        # Find corresponding chapter index
                         chapter_idx = self._find_chapter_index(href) if href else None
                         flat_toc.append({
                             'title': title,
@@ -207,8 +207,8 @@ class EpubLoader:
         try:
             process_items(self._book.toc)
         except Exception as e:
-            print(f"解析目录时出错: {e}")
-            # 返回空列表或基本目录作为后备
+            print(f"Error parsing TOC: {e}")
+            # Fallback: return a basic list based on chapter filenames
             for i in range(self.chapter_count()):
                 filename = self._chapters[i].get_name()
                 flat_toc.append({
@@ -221,24 +221,24 @@ class EpubLoader:
         return flat_toc
     
     def _find_chapter_index(self, href: str) -> Optional[int]:
-        """根据href查找章节索引"""
+        """Find chapter index by href"""
         if not href:
             return None
             
-        # 提取文件名部分
+        # Extract filename part
         filename = os.path.basename(unquote(href))
         
-        # 直接查找
+        # Direct lookup
         if filename in self._chapter_map:
             return self._chapter_map[filename]
         
-        # 尝试不带查询参数
+        # Try without query parameters
         if '?' in filename:
             base_name = filename.split('?')[0]
             if base_name in self._chapter_map:
                 return self._chapter_map[base_name]
         
-        # 尝试查找包含该文件名的章节
+        # Try searching chapters containing the filename
         for chapter_idx, chapter in enumerate(self._chapters):
             if filename in chapter.get_name():
                 return chapter_idx
@@ -246,9 +246,9 @@ class EpubLoader:
         return None
 
     def chapter_count(self) -> int:
-        """获取章节数量"""
+        """Return the number of chapters"""
         return len(self._chapters)
 
     def __del__(self):
-        """清理线程池"""
+        """Shutdown the thread pool"""
         self._executor.shutdown(wait=False)

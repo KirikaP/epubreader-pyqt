@@ -1,4 +1,4 @@
-"""设置管理模块"""
+"""Settings management module"""
 
 import json
 import os
@@ -7,7 +7,7 @@ from typing import Any, Dict, Optional
 
 
 class SettingsManager:
-    """用户设置管理器"""
+    """User settings manager"""
 
     DEFAULT_FILE = ".epub_reader_pyqt.json"
 
@@ -15,7 +15,7 @@ class SettingsManager:
         self._settings_file = str(Path.home() / (filename or self.DEFAULT_FILE))
 
     def save(self, data: Dict[str, Any]) -> bool:
-        """保存设置到文件"""
+        """Save settings to file"""
         try:
             with open(self._settings_file, "w", encoding="utf-8") as f:
                 json.dump(data, f, ensure_ascii=False, indent=2)
@@ -24,7 +24,7 @@ class SettingsManager:
             return False
 
     def load(self) -> Dict[str, Any]:
-        """从文件加载设置"""
+        """Load settings from file"""
         try:
             if os.path.exists(self._settings_file):
                 with open(self._settings_file, "r", encoding="utf-8") as f:
@@ -34,11 +34,11 @@ class SettingsManager:
         return {}
 
     def get(self, key: str, default: Any = None) -> Any:
-        """获取单个设置项"""
+        """Get a single setting"""
         return self.load().get(key, default)
 
     def set(self, key: str, value: Any) -> bool:
-        """设置单个设置项"""
+        """Set a single setting"""
         data = self.load()
         data[key] = value
         return self.save(data)

@@ -1,15 +1,15 @@
 """
-EPUB阅读器 - PyQt6版本
-使用 QWebEngineView 实现高性能 HTML 渲染
+EPUB Reader - PyQt6 version
+Uses QWebEngineView for high-performance HTML rendering
 
-功能特性:
-- 支持 EPUB 格式电子书
-- 12+ 精选主题
-- 自定义字体、字号、行距、段距
-- 阅读模式（鼠标左右键翻页）
-- 目录导航
-- 图片显示/隐藏
-- 阅读进度保存
+Features:
+- Supports EPUB format ebooks
+- 12+ curated themes
+- Custom fonts, font sizes, line spacing and paragraph spacing
+- Reading mode (mouse-driven navigation)
+- Table of contents navigation
+- Toggle images on/off
+- Save reading progress
 """
 
 import sys
@@ -20,7 +20,7 @@ from src.ui.main_window import MainWindow
 
 
 def main():
-    # 高DPI支持
+    # High-DPI support
     QApplication.setHighDpiScaleFactorRoundingPolicy(
         Qt.HighDpiScaleFactorRoundingPolicy.PassThrough
     )

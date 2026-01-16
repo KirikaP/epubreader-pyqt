@@ -1,8 +1,8 @@
-"""主题配置与样式生成工具。"""
+"""Theme configuration and stylesheet generation utilities."""
 
 from typing import Dict
 
-# 主题定义（可扩展的颜色配置字典）
+# Theme definitions (extensible color config dict)
 THEMES: Dict[str, dict] = {
     "light": {
         "name": "DayDefault",
@@ -248,15 +248,15 @@ THEMES: Dict[str, dict] = {
 
 
 def get_stylesheet(colors: dict) -> str:
-    """生成现代化Qt样式表"""
+    """Generate a modern Qt stylesheet"""
     return f"""
-        /* ========== 主窗口 ========== */
+        /* ========== Main window ========== */
         QMainWindow {{
             background-color: {colors['bg']};
             color: {colors['fg']};
         }}
         
-        /* ========== 工具栏 ========== */
+        /* ========== Toolbar ========== */
         QToolBar {{
             background-color: {colors['toolbar_bg']};
             border: none;
@@ -295,7 +295,7 @@ def get_stylesheet(colors: dict) -> str:
             opacity: 0.7;
         }}
         
-        /* ========== 目录树 ========== */
+        /* ========== Treeview ========== */
         QTreeWidget {{
             background-color: {colors['treeview_bg']};
             color: {colors['treeview_fg']};
@@ -321,7 +321,7 @@ def get_stylesheet(colors: dict) -> str:
             background-color: transparent;
         }}
         
-        /* ========== 滚动条 ========== */
+        /* ========== Scrollbar ========== */
         QScrollBar:vertical {{
             background-color: transparent;
             width: 10px;
@@ -365,7 +365,7 @@ def get_stylesheet(colors: dict) -> str:
             width: 0px;
         }}
         
-        /* ========== 菜单 ========== */
+        /* ========== Menu ========== */
         QMenu {{
             background-color: {colors['toolbar_bg']};
             color: {colors['fg']};
@@ -388,7 +388,7 @@ def get_stylesheet(colors: dict) -> str:
             margin: 6px 12px;
         }}
         
-        /* ========== 状态栏 ========== */
+        /* ========== Status bar ========== */
         QStatusBar {{
             background-color: {colors['toolbar_bg']};
             color: {colors['fg']};
@@ -400,7 +400,7 @@ def get_stylesheet(colors: dict) -> str:
             padding: 0 8px;
         }}
         
-        /* ========== 分割器 ========== */
+        /* ========== Splitter ========== */
         QSplitter::handle {{
             background-color: {colors['border_color']};
             width: 1px;
@@ -409,13 +409,13 @@ def get_stylesheet(colors: dict) -> str:
             background-color: {colors['accent']};
         }}
         
-        /* ========== 对话框 ========== */
+        /* ========== Dialog ========== */
         QDialog {{
             background-color: {colors['bg']};
             color: {colors['fg']};
         }}
         
-        /* ========== 输入框 ========== */
+        /* ========== Input ========== */
         QLineEdit {{
             background-color: {colors['treeview_bg']};
             color: {colors['treeview_fg']};
@@ -428,7 +428,7 @@ def get_stylesheet(colors: dict) -> str:
             border-color: {colors['accent']};
         }}
         
-        /* ========== 列表 ========== */
+        /* ========== List ========== */
         QListWidget {{
             background-color: {colors['treeview_bg']};
             color: {colors['treeview_fg']};
@@ -450,7 +450,7 @@ def get_stylesheet(colors: dict) -> str:
             background-color: {colors['hover_bg']};
         }}
         
-        /* ========== 按钮 ========== */
+        /* ========== Buttons ========== */
         QPushButton {{
             background-color: {colors['toolbar_bg']};
             color: {colors['fg']};
@@ -476,17 +476,17 @@ def get_stylesheet(colors: dict) -> str:
             background-color: {colors['select_bg']};
         }}
         
-        /* ========== 对话框按钮 ========== */
+        /* ========== Dialog buttons ========== */
         QDialogButtonBox QPushButton {{
             min-width: 90px;
         }}
         
-        /* ========== 标签 ========== */
+        /* ========== Labels ========== */
         QLabel {{
             color: {colors['fg']};
         }}
         
-        /* ========== 通用组件背景 ========== */
+        /* ========== Common component background ========== */
         QWidget {{
             background-color: {colors['bg']};
             color: {colors['fg']};
@@ -501,7 +501,7 @@ def generate_html_style(
     line_spacing: float,
     paragraph_spacing: float,
 ) -> str:
-    """生成HTML内容样式"""
+    """Generate HTML content styles"""
     return f"""<!DOCTYPE html>
 <html><head><meta charset="utf-8"><style>
 * {{
@@ -552,7 +552,7 @@ blockquote {{
     background-color: {colors['hover_bg']};
     border-radius: 0 8px 8px 0;
 }}
-/* ========== Web 内容滚动条（WebKit） ========== */
+/* ========== Web content scrollbar (WebKit) ========== */
 ::-webkit-scrollbar {{
     width: 10px;
     height: 10px;

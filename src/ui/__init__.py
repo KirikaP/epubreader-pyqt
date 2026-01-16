@@ -1,4 +1,4 @@
-"""UI组件模块"""
+"""UI components module"""
 from src.ui.main_window import MainWindow
 from src.ui.dialogs import FontDialog
 from src.ui.web_bridge import WebBridge

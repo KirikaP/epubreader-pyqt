@@ -1,4 +1,4 @@
-"""Web通信桥接模块"""
+"""Web communication bridge module"""
 
 from PyQt6.QtCore import QObject, pyqtSlot
 from typing import TYPE_CHECKING
@@ -8,7 +8,7 @@ if TYPE_CHECKING:
 
 
 class WebBridge(QObject):
-    """JavaScript 与 Python 通信桥接"""
+    """Bridge between JavaScript and Python"""
 
     def __init__(self, parent: "MainWindow"):
         super().__init__(parent)
@@ -16,7 +16,7 @@ class WebBridge(QObject):
 
     @pyqtSlot(str)
     def onMouseClick(self, button: str) -> None:
-        """处理鼠标点击事件 (阅读模式下)"""
+        """Handle mouse click events (in reading mode)"""
         if self._main_window.reading_mode:
             if button == "left":
                 self._main_window.next_chapter()

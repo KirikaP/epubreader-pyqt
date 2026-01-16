@@ -1,4 +1,4 @@
-"""UI 对话框组件：字体选择等。"""
+"""UI dialog components: font selection and helpers."""
 
 from PyQt6.QtWidgets import (
     QDialog,
@@ -13,7 +13,7 @@ from src.core.themes import THEMES
 
 
 class FontDialog(QDialog):
-    """字体选择对话框（支持搜索与双击选择）。"""
+    """Font selection dialog (supports search and double-click selection)."""
 
     def __init__(self, parent, current_font: str):
         super().__init__(parent)
@@ -23,13 +23,13 @@ class FontDialog(QDialog):
 
         layout = QVBoxLayout(self)
 
-        # 搜索输入：实时过滤字体列表
+        # Search input: live filter the font list
         self.search = QLineEdit()
         self.search.setPlaceholderText("搜索字体...")
         self.search.textChanged.connect(self._filter_fonts)
         layout.addWidget(self.search)
 
-# 字体列表：显示系统字体，支持双击确认
+# Font list: display system fonts and support double-click to confirm
         self.font_list = QListWidget()
         self._fonts = sorted(
             [f for f in QFontDatabase.families() if not f.startswith("@")]
@@ -38,13 +38,13 @@ class FontDialog(QDialog):
         self.font_list.itemDoubleClicked.connect(self.accept)
         layout.addWidget(self.font_list)
 
-        # 设置列表当前项为传入的当前字体
+        # Set current selection to the provided current font
         for i, f in enumerate(self._fonts):
             if f == current_font:
                 self.font_list.setCurrentRow(i)
                 break
 
-        # 确认/取消 按钮
+        # OK/Cancel buttons
         buttons = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
         )
@@ -62,4 +62,4 @@ class FontDialog(QDialog):
         return item.text() if item else self._selected_font
 
 
-# 主题选择逻辑已迁移到工具栏下拉菜单（MainWindow）；保留 FontDialog，移除已弃用的 ThemeDialog 类以清理遗留代码
+# Theme selection logic moved to the toolbar menu (MainWindow); keep FontDialog and remove deprecated ThemeDialog to clean up legacy code

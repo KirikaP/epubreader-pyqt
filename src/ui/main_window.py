@@ -612,21 +612,46 @@ class MainWindow(QMainWindow):
     # ==================== 目录与章节 ====================
 
     def _update_toc(self) -> None:
+        """更新目录树，支持嵌套结构"""
         self._toc_tree.clear()
-        for item in self._loader.get_toc():
-            if hasattr(item, "title"):
-                tree_item = QTreeWidgetItem(self._toc_tree, [item.title])
-                tree_item.setToolTip(0, item.title)
+        
+        # 使用新的扁平化目录
+        toc_items = self._loader.get_flat_toc()
+        
+        for item in toc_items:
+            title = item['title']
+            level = item['level']
+            chapter_idx = item['chapter_idx']
+            
+            tree_item = QTreeWidgetItem(self._toc_tree, [title])
+            tree_item.setToolTip(0, title)
+            
+            # 保存章节索引到用户数据
+            if chapter_idx is not None:
+                tree_item.setData(0, Qt.ItemDataRole.UserRole, chapter_idx)
+            
+            # 设置缩进级别
+            #self._toc_tree.setIndentation(15 * max(0, level))  # 可选：自动缩进
+        
         self._update_toc_selection()
-
+        
         # 更新章节计数
         total = self._loader.chapter_count()
         if self._chapter_label:
             self._chapter_label.setText(f"{total} 章")
 
     def _on_toc_click(self, item: QTreeWidgetItem) -> None:
-        idx = self._toc_tree.indexOfTopLevelItem(item)
-        if idx >= 0 and idx != self._current_chapter:
+        """目录项点击处理"""
+        # 从用户数据获取章节索引
+        chapter_idx = item.data(0, Qt.ItemDataRole.UserRole)
+        
+        if chapter_idx is not None:
+            idx = chapter_idx
+        else:
+            # 回退到旧方法
+            idx = self._toc_tree.indexOfTopLevelItem(item)
+        
+        if idx is not None and 0 <= idx < self._loader.chapter_count() and idx != self._current_chapter:
             self._current_chapter = idx
             # 由目录跳转视为导航操作，从章节顶部显示
             self._display_chapter(preserve_position=False)

@@ -1,13 +1,4 @@
-# EPUB Reader / EPUB 阅读器
-
-<p align="right">🇬🇧 English: <a href="README.en.md">README.en.md</a> | 🇨🇳 简体中文: <a href="README.zh-CN.md">README.zh-CN.md</a></p>
-
-
-This repository contains an EPUB reader built with PyQt6. Choose your preferred language above to read the full README.
-
----
-
-# EPUB 阅读器（简体中文）
+# EPUB 阅读器
 
 基于 PyQt6 的现代化 EPUB 阅读器，使用内置的 Web 引擎渲染章节内容并提供友好的排版与主题支持。
 
@@ -58,7 +49,8 @@ python main.py
 epub-python/
 ├── main.py              # 程序入口
 ├── requirements.txt
-├── README.md
+├── README.en.md         # 英文 README
+├── README.zh-CN.md      # 简体中文 README
 └── src/
     ├── core/            # 核心逻辑（加载、设置、主题）
     └── ui/              # 界面组件（主窗口、对话、桥接）
@@ -70,7 +62,6 @@ epub-python/
 
 ---
 
-如果你需要，把 README 加上更详细的开发指南、如何运行调试或如何为主题/样式贡献也可以，我可以继续补充。
 ## 运行
 
 ```bash
@@ -95,27 +86,6 @@ python main.py
 开启阅读模式后：
 - **左键点击** → 下一章
 - **右键点击** → 上一章
-
-## 项目结构
-
-```
-epub-python/
-├── main.py              # 程序入口
-├── requirements.txt     # 依赖列表
-├── README.md
-└── src/
-    ├── __init__.py
-    ├── core/            # 核心功能
-    │   ├── __init__.py
-    │   ├── epub_loader.py   # EPUB加载器
-    │   ├── settings.py      # 设置管理
-    │   └── themes.py        # 主题定义
-    └── ui/              # 界面组件
-        ├── __init__.py
-        ├── main_window.py   # 主窗口
-        ├── dialogs.py       # 对话框
-        └── web_bridge.py    # JS通信桥接
-```
 
 ## 主题列表
 

@@ -168,31 +168,26 @@ class EpubLoader:
                     # This is an iterable (tuple/list), may be a nested structure
                     process_items(item, level)
                 else:
-                    # Try to obtain title and href
+                    # Try to obtain title and href in a type-safe way
                     title = None
                     href = None
-                    
-                    # Check different attribute types
-                    if hasattr(item, 'title'):
-                        title = item.title
-                    elif hasattr(item, 'get'):
-                        try:
-                            title = item.get('title', '')
-                        except:
-                            pass
-                    
-                    if hasattr(item, 'href'):
-                        href = item.href
-                    elif hasattr(item, 'get'):
-                        try:
-                            href = item.get('href', '')
-                        except:
-                            pass
-                    
-                    # If item is a Link (common case), normalize to epub.Link
+
+                    # Skip plain strings/bytes early to satisfy static checkers
+                    if isinstance(item, (str, bytes)):
+                        continue
+
                     if isinstance(item, epub.Link):
-                        title = title or item.title
-                        href = href or item.href
+                        # Common case: epub.Link
+                        title = item.title
+                        href = item.href
+                    elif isinstance(item, dict):
+                        # Some TOC entries can be dict-like
+                        title = item.get('title', '') or None
+                        href = item.get('href', '') or None
+                    else:
+                        # Fallback to attribute access for other objects
+                        title = getattr(item, 'title', None)
+                        href = getattr(item, 'href', None)
                     
                     if title:
                         # Find corresponding chapter index

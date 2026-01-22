@@ -669,10 +669,11 @@ class MainWindow(QMainWindow):
         # Prefer items that store a chapter_idx matching the current chapter
         for i in range(count):
             it = self._toc_tree.topLevelItem(i)
-            try:
-                chapter_idx = it.data(0, Qt.ItemDataRole.UserRole)
-            except Exception:
-                chapter_idx = None
+            # Guard against possible None (pyqt API may return None)
+            if it is None:
+                continue
+
+            chapter_idx = it.data(0, Qt.ItemDataRole.UserRole)
             if chapter_idx == self._current_chapter:
                 found_item = it
                 break

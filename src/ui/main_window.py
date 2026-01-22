@@ -36,41 +36,26 @@ from src.ui.dialogs import FontDialog
 from src.ui.web_bridge import WebBridge
 
 
-# JavaScript code: mouse click detection in reading mode
-_MOUSE_HANDLER_JS = """
-<script src="qrc:///qtwebchannel/qwebchannel.js"></script>
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    new QWebChannel(qt.webChannelTransport, function(channel) {
-        window.bridge = channel.objects.bridge;
-    });
-});
-// Ignore clicks on the scrollbar area (prevent page turning when the scrollbar is clicked)
-document.addEventListener('mousedown', function(e) {
-    try {
-        var scrollbarWidth = window.innerWidth - (document.documentElement.clientWidth || document.body.clientWidth || 0);
-        // If computed scrollbar width > 0 and click is within the scrollbar area on the right, ignore the event
-        if (scrollbarWidth > 0 && e.clientX >= window.innerWidth - scrollbarWidth) {
-            return;
-        }
-    } catch (err) {
-        // On error, do not interfere with normal click handling
-    }
+# JavaScript code: mouse click detection in reading mode (loaded from external file)
+def _load_js(name: str) -> str:
+    try:
+        base = os.path.join(os.path.dirname(__file__), "js")
+        path = os.path.join(base, name)
+        with open(path, "r", encoding="utf-8") as f:
+            content = f.read()
+            # Wrap the JS in <script> tags so it is interpreted by the browser,
+            # and include the qwebchannel loader script reference.
+            return (
+                '<script src="qrc:///qtwebchannel/qwebchannel.js"></script>\n'
+                '<script>\n'
+                f"{content}\n"
+                '</script>\n'
+            )
+    except Exception:
+        return ""
 
-    // Ignore clicks on editable input controls
-    var tgt = e.target;
-    if (tgt && (tgt.tagName === 'INPUT' || tgt.tagName === 'TEXTAREA' || tgt.isContentEditable)) {
-        return;
-    }
-
-    if (window.bridge) {
-        if (e.button === 0) window.bridge.onMouseClick('left');
-        else if (e.button === 2) window.bridge.onMouseClick('right');
-    }
-});
-document.addEventListener('contextmenu', function(e) { e.preventDefault(); });
-</script>
-"""
+_MOUSE_HANDLER_JS = _load_js("mouse_handler.js")
+_SCROLL_JS = _load_js("scroll_restore.js")
 
 
 class MainWindow(QMainWindow):
@@ -713,7 +698,7 @@ class MainWindow(QMainWindow):
                 self._line_spacing,
                 self._paragraph_spacing,
             )
-            html += _MOUSE_HANDLER_JS + (content or "") + "</body></html>"
+            html += _MOUSE_HANDLER_JS + _SCROLL_JS + (content or "") + "</body></html>"
             self._browser.setHtml(html)
             self._loader.preload_chapters(self._current_chapter)
             total = self._loader.chapter_count()
@@ -737,7 +722,7 @@ class MainWindow(QMainWindow):
                 self._line_spacing,
                 self._paragraph_spacing,
             )
-            html += _MOUSE_HANDLER_JS + (content or "") + "</body></html>"
+            html += _MOUSE_HANDLER_JS + _SCROLL_JS + (content or "") + "</body></html>"
 
             # Record whether to restore scroll (by ratio)
             if preserve_position:
@@ -760,21 +745,8 @@ class MainWindow(QMainWindow):
                         return
 
                     ratio_local = max(0.0, min(1.0, float(self._pending_scroll_ratio)))
-                    js_set = f"""
-                    (function(){{
-                        try {{
-                            var h = document.documentElement.scrollHeight || document.body.scrollHeight;
-                            var win = window.innerHeight || document.documentElement.clientHeight;
-                            var y = 0;
-                            if (h - win > 0) y = Math.round({ratio_local} * (h - win));
-                            window.scrollTo(0, y);
-                            return y;
-                        }} catch(e) {{ return 0; }}
-                    }})()
-                    """
-
-                    page.runJavaScript(js_set, lambda _: None)
-                    QTimer.singleShot(60, lambda: page.runJavaScript(js_set, lambda _: None))
+                    page.runJavaScript(f"setScrollRatio({ratio_local})", lambda _: None)
+                    QTimer.singleShot(60, lambda: page.runJavaScript(f"setScrollRatio({ratio_local})", lambda _: None))
                 finally:
                     try:
                         page.loadFinished.disconnect(_on_load)
@@ -793,19 +765,8 @@ class MainWindow(QMainWindow):
 
         if preserve_position:
             # First get current page scroll ratio, then render new content and try to restore
-            js_get = """
-            (function(){
-                try{
-                    var h = document.documentElement.scrollHeight || document.body.scrollHeight;
-                    var win = window.innerHeight || document.documentElement.clientHeight;
-                    var y = window.scrollY || window.pageYOffset || 0;
-                    var ratio = (h - win > 0) ? (y / (h - win)) : 0;
-                    return ratio;
-                } catch(e) { return 0; }
-            })()
-            """
             try:
-                page.runJavaScript(js_get, _set_html_and_restore)
+                page.runJavaScript("getScrollRatio()", _set_html_and_restore)
             except Exception:
                 _set_html_and_restore(0.0)
         else:

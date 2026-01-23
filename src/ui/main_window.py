@@ -843,9 +843,9 @@ class MainWindow(QMainWindow):
     def _toggle_reading_mode(self) -> None:
         self._reading_mode = not self._reading_mode
         if self._reading_btn:
-            # Toggle icon and label
+            # Toggle icon and label (show open book when reading, closed when not)
             try:
-                icon = self._emoji_icon("📕" if self._reading_mode else "📖", size=18)
+                icon = self._emoji_icon("📖" if self._reading_mode else "📕", size=18)
                 self._reading_btn.setIcon(icon)
             except Exception:
                 pass
@@ -859,7 +859,7 @@ class MainWindow(QMainWindow):
             if self._reading_mode:
                 status_bar.showMessage("📖 阅读模式已开启 - 左键下一章，右键上一章")
             else:
-                status_bar.showMessage("阅读模式已关闭")
+                status_bar.showMessage("📕 阅读模式已关闭")
         self._save_settings()
 
     def _choose_font(self) -> None:
@@ -997,7 +997,7 @@ class MainWindow(QMainWindow):
 
         if self._reading_btn:
             try:
-                icon = self._emoji_icon("📕" if self._reading_mode else "📖", size=18)
+                icon = self._emoji_icon("�" if self._reading_mode else "📕", size=18)
                 self._reading_btn.setIcon(icon)
             except Exception:
                 pass

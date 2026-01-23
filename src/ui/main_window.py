@@ -361,6 +361,9 @@ class MainWindow(QMainWindow):
                             name[2:] if len(name) > 2 and name[1] == " " else name[1:]
                         )
                     self._safe(getattr(item, "setText", lambda *_: None), name)
+                elif item is getattr(self, "_reading_btn", None):
+                    # Keep reading button label synchronized with reading state
+                    self._safe(getattr(item, "setText", lambda *_: None), "阅读中" if self._reading_mode else label)
                 else:
                     self._safe(getattr(item, "setText", lambda *_: None), label)
             # Icon handling (always refresh to reflect theme colors)

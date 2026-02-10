@@ -3,6 +3,7 @@
 import os
 import base64
 import re
+from collections import OrderedDict
 from urllib.parse import unquote
 from typing import Optional, List, Any, Dict, Tuple
 from concurrent.futures import ThreadPoolExecutor
@@ -16,7 +17,7 @@ except ImportError:
 
 
 class EpubLoader:
-    """EPUB file loader"""
+    """EPUB file loader with performance optimizations"""
 
     # Supported image MIME types
     _MIME_TYPES: Dict[str, str] = {
@@ -28,14 +29,18 @@ class EpubLoader:
         "webp": "image/webp",
     }
 
+    # Maximum cache size to prevent memory bloat
+    MAX_CACHE_SIZE = 10
+
     def __init__(self):
         self._book: Optional[epub.EpubBook] = None
         self._chapters: List[Any] = []
-        self._chapter_cache: Dict[int, str] = {}
+        # Use OrderedDict for LRU cache - order tracks access time
+        self._chapter_cache: OrderedDict[int, str] = OrderedDict()
         self._image_index: Dict[str, Any] = {}
         self._show_images = True
         self._executor = ThreadPoolExecutor(max_workers=2)
-        self._chapter_map: Dict[str, int] = {}  # Added: mapping from chapter filename to index
+        self._chapter_map: Dict[str, int] = {}  # Mapping from chapter filename to index
 
     def load_file(self, filepath: str) -> Tuple[bool, str]:
         """
@@ -88,25 +93,39 @@ class EpubLoader:
             self._chapter_cache.clear()
 
     def get_chapter_content(self, index: int) -> Optional[str]:
-        """Get chapter HTML content"""
+        """Get chapter HTML content with LRU caching"""
         if not (0 <= index < len(self._chapters)):
             return None
 
+        # Return cached content and update LRU order
         if index in self._chapter_cache:
-            return self._chapter_cache[index]
+            # Move to end to mark as recently used
+            content = self._chapter_cache.pop(index)
+            self._chapter_cache[index] = content
+            return content
 
         try:
             content = self._chapters[index].get_content().decode("utf-8")
             content = self._embed_images(content)
+            
+            # Add to cache (at end for LRU)
             self._chapter_cache[index] = content
+            
+            # Evict old entries if cache is too large
+            while len(self._chapter_cache) > self.MAX_CACHE_SIZE:
+                self._chapter_cache.popitem(last=False)  # Remove oldest (first) item
+            
             return content
         except Exception:
             return None
 
     def preload_chapters(self, current: int) -> None:
-        """Asynchronously preload adjacent chapters"""
-        for i in range(max(0, current - 1), min(len(self._chapters), current + 2)):
-            if i not in self._chapter_cache:
+        """Asynchronously preload adjacent chapters (optimised to avoid redundant work)"""
+        # Only preload chapters that aren't already cached
+        preload_range = range(max(0, current - 1), min(len(self._chapters), current + 2))
+        
+        for i in preload_range:
+            if i not in self._chapter_cache and i != current:
                 self._executor.submit(self.get_chapter_content, i)
 
     def _embed_images(self, html: str) -> str:

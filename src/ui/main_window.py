@@ -100,6 +100,16 @@ class MainWindow(QMainWindow):
         self._pending_scroll_ratio: Optional[float] = None
         self._pending_scroll_chapter: Optional[int] = None
 
+        # HTML style cache (to avoid regenerating on every chapter render)
+        self._cached_html_style: Optional[str] = None
+        self._cached_style_key: Optional[tuple] = None
+
+        # Icon cache (to avoid re-rendering emoji icons repeatedly)
+        self._icon_cache: dict[str, QIcon] = {}
+
+        # Font list cache (lazy loading)
+        self._all_fonts: Optional[list] = None
+
         # UI component references (handles for later updates)
         self._reading_btn: Optional[QAction] = None
         self._progress_label: Optional[QLabel] = None
@@ -286,7 +296,16 @@ class MainWindow(QMainWindow):
         return action
 
     def _emoji_icon(self, emoji: str, size: int = 18) -> QIcon:
-        """Render an emoji as QIcon for toolbar icons."""
+        """Render an emoji as QIcon for toolbar icons (cached)."""
+        # Create cache key including theme color since icons change with theme
+        fg_color = self._get_colors().get("fg", "#000000")
+        cache_key = f"{emoji}_{size}_{fg_color}"
+        
+        # Return cached icon if available
+        if cache_key in self._icon_cache:
+            return self._icon_cache[cache_key]
+        
+        # Generate and cache new icon
         pix = QPixmap(size, size)
         # Transparent background
         pix.fill(Qt.GlobalColor.transparent)
@@ -295,10 +314,16 @@ class MainWindow(QMainWindow):
         painter.setRenderHint(QPainter.RenderHint.TextAntialiasing, True)
         font = QFont(self.DEFAULT_FONT, max(1, int(size * 0.7)))
         painter.setFont(font)
-        painter.setPen(QColor(self._get_colors().get("fg", "#000000")))
+        painter.setPen(QColor(fg_color))
         painter.drawText(pix.rect(), Qt.AlignmentFlag.AlignCenter, emoji)
         painter.end()
-        return QIcon(pix)
+        icon = QIcon(pix)
+        
+        # Cache the icon (limit cache size to prevent memory bloat)
+        if len(self._icon_cache) < 50:
+            self._icon_cache[cache_key] = icon
+        
+        return icon
 
     def _add_menu_button(self, menu: QMenu, text: str, callback) -> None:
         """Add a QPushButton to a menu without closing it (for repeated actions)."""
@@ -396,14 +421,13 @@ class MainWindow(QMainWindow):
         status_bar.addPermanentWidget(self._progress_label)
 
         status_bar.showMessage("欢迎使用 EPUB 阅读器")
-        # Initially update toolbar display mode (delayed to ensure window size is settled)
-        QTimer.singleShot(200, self._maybe_update_toolbar_compact)
-        # Initially refresh labels to ensure button text displays correctly (delayed to allow layout)
-        QTimer.singleShot(250, self._refresh_toolbar_labels)
-        # Initially generate icons to ensure theme colors apply
-        QTimer.singleShot(
-            250, lambda: getattr(self, "_refresh_toolbar_icons", lambda: None)()
-        )
+        # Initially update toolbar - combine multiple delayed refreshes into one
+        def _initial_refresh():
+            self._maybe_update_toolbar_compact()
+            self._refresh_toolbar_labels()
+            self._refresh_toolbar_icons()
+        
+        QTimer.singleShot(250, _initial_refresh)
 
     def _setup_shortcuts(self) -> None:
         """Register global keyboard shortcuts."""
@@ -432,6 +456,12 @@ class MainWindow(QMainWindow):
         """Apply current theme to the application stylesheet and refresh the toolbar."""
         colors = THEMES.get(self._current_theme, THEMES["light"])
         self.setStyleSheet(get_stylesheet(colors))
+        
+        # Clear caches as theme has changed
+        self._icon_cache.clear()
+        self._cached_html_style = None
+        self._cached_style_key = None
+        
         # Update theme action text to show current theme name (if present)
         try:
             if hasattr(self, "_theme_action"):
@@ -445,16 +475,9 @@ class MainWindow(QMainWindow):
                     self._theme_action.setText(name)
         except Exception:
             pass
-        # Regenerate emoji icons to reflect theme colors/arrows and refresh labels
-        try:
-            self._refresh_toolbar_icons()
-            self._refresh_toolbar_labels()
-        except Exception:
-            # If synchronous updates fail, use delayed updates to keep UI stable
-            QTimer.singleShot(0, self._refresh_toolbar_labels)
-            QTimer.singleShot(
-                50, lambda: getattr(self, "_refresh_toolbar_icons", lambda: None)()
-            )
+        # Refresh toolbar synchronously - combined icons and labels update
+        self._refresh_toolbar_icons()
+        self._refresh_toolbar_labels()
 
     def _make_menu_compact(self, menu: QMenu) -> None:
         """Apply compact styling to a QMenu to reduce padding and item height and use theme colors."""
@@ -493,14 +516,45 @@ class MainWindow(QMainWindow):
     def _get_colors(self) -> dict:
         return THEMES.get(self._current_theme, THEMES["light"])
 
+    def _get_html_style(self) -> str:
+        """Get cached HTML style or generate new one if cache is invalid"""
+        colors = self._get_colors()
+        font_size = int(self._font_size * self._font_scale)
+        
+        # Create cache key
+        style_key = (
+            self._current_theme,
+            self._font_family,
+            font_size,
+            self._line_spacing,
+            self._paragraph_spacing,
+        )
+        
+        # Return cached style if valid
+        if self._cached_html_style and self._cached_style_key == style_key:
+            return self._cached_html_style
+        
+        # Generate and cache new style
+        self._cached_html_style = generate_html_style(
+            colors,
+            self._font_family,
+            font_size,
+            self._line_spacing,
+            self._paragraph_spacing,
+        )
+        self._cached_style_key = style_key
+        return self._cached_html_style
+
     def showEvent(self, event) -> None:
         """After window shows, refresh toolbar state to ensure labels render correctly"""
         super().showEvent(event)
-        QTimer.singleShot(50, self._maybe_update_toolbar_compact)
-        QTimer.singleShot(80, self._refresh_toolbar_labels)
-        QTimer.singleShot(
-            80, lambda: getattr(self, "_refresh_toolbar_icons", lambda: None)()
-        )
+        # Combine multiple UI refreshes into one delayed call
+        def _refresh_all():
+            self._maybe_update_toolbar_compact()
+            self._refresh_toolbar_labels()
+            self._refresh_toolbar_icons()
+        
+        QTimer.singleShot(50, _refresh_all)
 
     def _open_theme_dialog(self) -> None:
         # Show theme options using a menu anchored to the toolbar action
@@ -692,15 +746,7 @@ class MainWindow(QMainWindow):
 
         # If page is unavailable (rare environments or during init), render directly and return
         if page is None:
-            colors = self._get_colors()
-            font_size = max(12, int(self._font_size * self._font_scale))
-            html = generate_html_style(
-                colors,
-                self._font_family,
-                font_size,
-                self._line_spacing,
-                self._paragraph_spacing,
-            )
+            html = self._get_html_style()
             html += _MOUSE_HANDLER_JS + _SCROLL_JS + (content or "") + "</body></html>"
             self._browser.setHtml(html)
             self._loader.preload_chapters(self._current_chapter)
@@ -716,15 +762,8 @@ class MainWindow(QMainWindow):
             except Exception:
                 ratio = 0.0
 
-            colors = self._get_colors()
-            font_size = max(12, int(self._font_size * self._font_scale))
-            html = generate_html_style(
-                colors,
-                self._font_family,
-                font_size,
-                self._line_spacing,
-                self._paragraph_spacing,
-            )
+            # Use cached HTML style
+            html = self._get_html_style()
             html += _MOUSE_HANDLER_JS + _SCROLL_JS + (content or "") + "</body></html>"
 
             # Record whether to restore scroll (by ratio)
@@ -914,10 +953,10 @@ class MainWindow(QMainWindow):
             f"QListWidget::item:hover {{ background: {hover_bg}; color: {hover_fg}; }}"
         )
         font_list.setMouseTracking(True)
-        all_fonts = sorted(
-            [f for f in QFontDatabase.families() if not f.startswith("@")]
-        )
-
+        
+        # Load fonts asynchronously - only when menu is about to show
+        self._all_fonts = None  # Cache font list for future uses
+        
         def populate(names):
             font_list.clear()
             for name in names:
@@ -925,10 +964,23 @@ class MainWindow(QMainWindow):
                 it.setFont(QFont(name, 14))
                 it.setSizeHint(QSize(360, 26))
                 font_list.addItem(it)
-
-        populate(all_fonts)
-        font_list.setFixedWidth(420)
-        font_list.setMinimumHeight(min(800, 26 * len(all_fonts)))
+        
+        def get_all_fonts():
+            if self._all_fonts is None:
+                # Load fonts only when needed (lazy loading)
+                self._all_fonts = sorted(
+                    [f for f in QFontDatabase.families() if not f.startswith("@")]
+                )
+            return self._all_fonts
+        
+        # Populate with initial set when menu is about to show
+        def on_menu_about_to_show():
+            fonts = get_all_fonts()
+            populate(fonts)
+            font_list.setFixedWidth(420)
+            font_list.setMinimumHeight(min(800, 26 * len(fonts)))
+        
+        self._font_menu.aboutToShow.connect(on_menu_about_to_show)
         layout.addWidget(font_list)
 
         # Click or double-click to select
@@ -944,7 +996,8 @@ class MainWindow(QMainWindow):
 
         # Filtering
         def on_search(text: str):
-            filtered = [f for f in all_fonts if text.lower() in f.lower()]
+            fonts = get_all_fonts()
+            filtered = [f for f in fonts if text.lower() in f.lower()]
             populate(filtered)
 
         search.textChanged.connect(on_search)

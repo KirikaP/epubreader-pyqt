@@ -187,10 +187,6 @@ class EpubLoader:
             pass
         return tag
 
-    def get_toc(self) -> list:
-        """Get table of contents (preserve original interface)"""
-        return self._book.toc if self._book else []
-
     def get_flat_toc(self) -> list:
         """Get a flattened TOC list. Each item is a dict with title, chapter index and level"""
         if not self._book:

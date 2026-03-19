@@ -32,7 +32,6 @@ from PyQt6.QtWebChannel import QWebChannel
 from src.core.epub_loader import EpubLoader
 from src.core.settings import SettingsManager
 from src.core.themes import THEMES, get_stylesheet, generate_html_style
-from src.ui.dialogs import FontDialog
 from src.ui.web_bridge import WebBridge
 
 
@@ -325,28 +324,6 @@ class MainWindow(QMainWindow):
         
         return icon
 
-    def _add_menu_button(self, menu: QMenu, text: str, callback) -> None:
-        """Add a QPushButton to a menu without closing it (for repeated actions)."""
-        from PyQt6.QtWidgets import QPushButton
-
-        parts = text.split(" ", 1)
-        emoji = parts[0]
-        label = parts[1] if len(parts) > 1 else ""
-        btn = QPushButton(label)
-        btn.setFlat(True)
-        btn.setStyleSheet("text-align: left; padding: 6px 16px;")
-        btn.clicked.connect(callback)
-        # Set icon so compact mode shows icon only
-        try:
-            btn.setIcon(self._emoji_icon(emoji, size=18))
-        except Exception:
-            pass
-        action = QWidgetAction(menu)
-        action.setDefaultWidget(btn)
-        menu.addAction(action)
-        # Also record the button as part of toolbar items (for toggling text/icon)
-        self._toolbar_items.append((btn, label, emoji))
-
     def _maybe_update_toolbar_compact(self) -> None:
         """Toggle toolbar display mode (icon only or icon+text) based on window width."""
         width = self.width()
@@ -403,11 +380,7 @@ class MainWindow(QMainWindow):
         if fa is not None:
             self._safe(fa.setText, "排版" if not self._compact_mode else "")
 
-    # Backwards compatibility: keep old name but reuse unified implementation
     def _refresh_toolbar_labels(self) -> None:
-        self._refresh_toolbar_items()
-
-    def _refresh_toolbar_icons(self) -> None:
         self._refresh_toolbar_items()
 
     def _create_status_bar(self) -> None:
@@ -425,7 +398,7 @@ class MainWindow(QMainWindow):
         def _initial_refresh():
             self._maybe_update_toolbar_compact()
             self._refresh_toolbar_labels()
-            self._refresh_toolbar_icons()
+            self._refresh_toolbar_labels()
         
         QTimer.singleShot(250, _initial_refresh)
 
@@ -476,7 +449,7 @@ class MainWindow(QMainWindow):
         except Exception:
             pass
         # Refresh toolbar synchronously - combined icons and labels update
-        self._refresh_toolbar_icons()
+        self._refresh_toolbar_labels()
         self._refresh_toolbar_labels()
 
     def _make_menu_compact(self, menu: QMenu) -> None:
@@ -552,7 +525,7 @@ class MainWindow(QMainWindow):
         def _refresh_all():
             self._maybe_update_toolbar_compact()
             self._refresh_toolbar_labels()
-            self._refresh_toolbar_icons()
+            self._refresh_toolbar_labels()
         
         QTimer.singleShot(50, _refresh_all)
 
@@ -1006,13 +979,6 @@ class MainWindow(QMainWindow):
         action.setDefaultWidget(container)
         self._font_menu.addAction(action)
 
-    def _choose_theme(self) -> None:
-        # Open theme selector (using unified dialog/menu entry)
-        try:
-            self._open_theme_dialog()
-        except Exception:
-            pass
-
     # ==================== Settings persistence ====================
 
     def _save_settings(self) -> None:
@@ -1053,7 +1019,7 @@ class MainWindow(QMainWindow):
 
         if self._reading_btn:
             try:
-                icon = self._emoji_icon("�" if self._reading_mode else "📕", size=18)
+                icon = self._emoji_icon("📗" if self._reading_mode else "📕", size=18)
                 self._reading_btn.setIcon(icon)
             except Exception:
                 pass

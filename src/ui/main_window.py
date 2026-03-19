@@ -19,7 +19,6 @@ from PyQt6.QtWidgets import (
     QFrame,
     QSizePolicy,
     QWidgetAction,
-    QToolButton,
     QLineEdit,
     QListWidget,
 )
@@ -693,7 +692,6 @@ class MainWindow(QMainWindow):
         """
         content = self._loader.get_chapter_content(self._current_chapter)
         page = self._browser.page()
-        chapter_idx = self._current_chapter
 
         # If page is unavailable (rare environments or during init), render directly and return
         if page is None:
@@ -720,7 +718,7 @@ class MainWindow(QMainWindow):
             # Record whether to restore scroll (by ratio)
             if preserve_position:
                 self._pending_scroll_ratio = ratio
-                self._pending_scroll_chapter = chapter_idx
+                self._pending_scroll_chapter = self._current_chapter
             else:
                 self._pending_scroll_ratio = None
                 self._pending_scroll_chapter = None

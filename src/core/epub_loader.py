@@ -51,11 +51,28 @@ class EpubLoader:
         """
         try:
             self._book = epub.read_epub(filepath)
-            self._chapters = [
-                item
+            
+            # Get all document items first
+            all_docs = {
+                item.get_name(): item
                 for item in self._book.get_items()
                 if item.get_type() == ebooklib.ITEM_DOCUMENT
-            ]
+            }
+            
+            # Order chapters by spine (reading order), fallback to original order if no spine
+            if self._book.spine:
+                self._chapters = []
+                for spine_item in self._book.spine:
+                    item = self._book.get_item_with_href(spine_item[0])
+                    if item and item.get_type() == ebooklib.ITEM_DOCUMENT:
+                        self._chapters.append(item)
+            else:
+                # Fallback: use get_items() order
+                self._chapters = [
+                    item
+                    for item in self._book.get_items()
+                    if item.get_type() == ebooklib.ITEM_DOCUMENT
+                ]
             
             # Build mapping from chapter filename to index
             self._chapter_map.clear()

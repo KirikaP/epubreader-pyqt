@@ -52,13 +52,6 @@ class EpubLoader:
         try:
             self._book = epub.read_epub(filepath)
             
-            # Get all document items first
-            all_docs = {
-                item.get_name(): item
-                for item in self._book.get_items()
-                if item.get_type() == ebooklib.ITEM_DOCUMENT
-            }
-            
             # Order chapters by spine (reading order), fallback to original order if no spine
             if self._book.spine:
                 self._chapters = []

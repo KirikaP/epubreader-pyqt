@@ -398,7 +398,6 @@ class MainWindow(QMainWindow):
         def _initial_refresh():
             self._maybe_update_toolbar_compact()
             self._refresh_toolbar_labels()
-            self._refresh_toolbar_labels()
         
         QTimer.singleShot(250, _initial_refresh)
 
@@ -448,8 +447,7 @@ class MainWindow(QMainWindow):
                     self._theme_action.setText(name)
         except Exception:
             pass
-        # Refresh toolbar synchronously - combined icons and labels update
-        self._refresh_toolbar_labels()
+        # Refresh toolbar synchronously
         self._refresh_toolbar_labels()
 
     def _make_menu_compact(self, menu: QMenu) -> None:
@@ -470,21 +468,6 @@ class MainWindow(QMainWindow):
             )
         except Exception:
             pass
-
-    def _on_theme_selected(self, action) -> None:
-        """Called when a theme menu item is selected"""
-        key = action.data()
-        if not key:
-            return
-        self._current_theme = key
-        # Set action as checked (exclusive behavior handled by QActionGroup)
-        try:
-            action.setChecked(True)
-        except Exception:
-            pass
-        self._apply_theme()
-        self._display_chapter()
-        self._save_settings()
 
     def _get_colors(self) -> dict:
         return THEMES.get(self._current_theme, THEMES["light"])
@@ -524,7 +507,6 @@ class MainWindow(QMainWindow):
         # Combine multiple UI refreshes into one delayed call
         def _refresh_all():
             self._maybe_update_toolbar_compact()
-            self._refresh_toolbar_labels()
             self._refresh_toolbar_labels()
         
         QTimer.singleShot(50, _refresh_all)
@@ -635,7 +617,6 @@ class MainWindow(QMainWindow):
         
         for item in toc_items:
             title = item['title']
-            level = item['level']
             chapter_idx = item['chapter_idx']
             
             tree_item = QTreeWidgetItem(self._toc_tree, [title])
@@ -644,9 +625,6 @@ class MainWindow(QMainWindow):
             # Save chapter index to user data
             if chapter_idx is not None:
                 tree_item.setData(0, Qt.ItemDataRole.UserRole, chapter_idx)
-            
-            # Set indentation level
-            #self._toc_tree.setIndentation(15 * max(0, level))  # Optional: automatic indentation
         
         self._update_toc_selection()
         

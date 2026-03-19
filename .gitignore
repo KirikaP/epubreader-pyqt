@@ -15,3 +15,7 @@ venv/
 
 # Local Books
 book/
+
+# VS Code Extension
+epub-reader/
+node_modules/

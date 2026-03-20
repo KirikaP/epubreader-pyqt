@@ -17,7 +17,7 @@ class WebBridge(QObject):
     @pyqtSlot(str)
     def onMouseClick(self, button: str) -> None:
         """Handle mouse click events (in reading mode)"""
-        if self._main_window.reading_mode:
+        if self._main_window.reading_mode and not self._main_window.menu_open:
             if button == "left":
                 self._main_window.next_chapter()
             elif button == "right":

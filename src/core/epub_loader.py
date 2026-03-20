@@ -56,7 +56,11 @@ class EpubLoader:
             if self._book.spine:
                 self._chapters = []
                 for spine_item in self._book.spine:
-                    item = self._book.get_item_with_href(spine_item[0])
+                    href = spine_item[0]
+                    # Try get_item_with_href first, then fallback to get_item_with_id
+                    item = self._book.get_item_with_href(href)
+                    if not item:
+                        item = self._book.get_item_with_id(href)
                     if item and item.get_type() == ebooklib.ITEM_DOCUMENT:
                         self._chapters.append(item)
             else:
@@ -138,13 +142,15 @@ class EpubLoader:
             if i not in self._chapter_cache and i != current:
                 self._executor.submit(self.get_chapter_content, i)
 
+    # Pre-compiled regex pattern for better performance
+    _IMG_PATTERN = re.compile(r'<img[^>]+src=["\']([^"\'>]+)["\'][^>]*>', re.IGNORECASE)
+
     def _embed_images(self, html: str) -> str:
         """Convert image references to base64 inline"""
         if not self._book:
             return html
 
-        pattern = re.compile(r'<img[^>]+src=["\']([^"\'>]+)["\'][^>]*>', re.IGNORECASE)
-        return pattern.sub(self._replace_image, html)
+        return self._IMG_PATTERN.sub(self._replace_image, html)
 
     def _replace_image(self, match: re.Match) -> str:
         """Replace a single image tag"""
@@ -245,18 +251,18 @@ class EpubLoader:
         if not href:
             return None
             
-        # Extract filename part
+        # Extract filename part and remove anchor/query
         filename = os.path.basename(unquote(href))
+        
+        # Remove anchor (#...) and query (?) parameters
+        if '#' in filename:
+            filename = filename.split('#')[0]
+        if '?' in filename:
+            filename = filename.split('?')[0]
         
         # Direct lookup
         if filename in self._chapter_map:
             return self._chapter_map[filename]
-        
-        # Try without query parameters
-        if '?' in filename:
-            base_name = filename.split('?')[0]
-            if base_name in self._chapter_map:
-                return self._chapter_map[base_name]
         
         # Try searching chapters containing the filename
         for chapter_idx, chapter in enumerate(self._chapters):

@@ -24,8 +24,7 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtCore import Qt, QTimer, QSize
-from PyQt6.QtGui import QPixmap, QPainter, QColor
-from PyQt6.QtGui import QAction, QFont, QShortcut, QKeySequence, QIcon, QFontDatabase
+from PyQt6.QtGui import QAction, QFont, QShortcut, QKeySequence, QFontDatabase
 from PyQt6.QtWebChannel import QWebChannel
 
 from src.core.epub_loader import EpubLoader
@@ -79,7 +78,7 @@ class MainWindow(QMainWindow):
         self._last_opened: Optional[str] = None
 
         # Toolbar items tracking (for compact mode toggling)
-        self._toolbar_items: list[tuple] = []  # (item, label, emoji)
+        self._toolbar_items: list[tuple] = []  # (item, label)
         self._compact_threshold = 520
         self._compact_mode = False
 
@@ -93,6 +92,7 @@ class MainWindow(QMainWindow):
         self._show_images = True
         self._reading_mode = False
         self._toc_visible = True
+        self._menu_open = False
 
         # Temporarily save scroll info to restore reading position after display changes (per-chapter)
         self._pending_scroll_ratio: Optional[float] = None
@@ -101,9 +101,6 @@ class MainWindow(QMainWindow):
         # HTML style cache (to avoid regenerating on every chapter render)
         self._cached_html_style: Optional[str] = None
         self._cached_style_key: Optional[tuple] = None
-
-        # Icon cache (to avoid re-rendering emoji icons repeatedly)
-        self._icon_cache: dict[str, QIcon] = {}
 
         # Font list cache (lazy loading)
         self._all_fonts: Optional[list] = None
@@ -129,6 +126,10 @@ class MainWindow(QMainWindow):
     @property
     def reading_mode(self) -> bool:
         return self._reading_mode
+
+    @property
+    def menu_open(self) -> bool:
+        return self._menu_open
 
     # ==================== UI Initialization ====================
 
@@ -232,36 +233,36 @@ class MainWindow(QMainWindow):
 
         # File button - open directly
         self._add_action(
-            toolbar, "📂 打开", "打开文件 (Ctrl+O)", self._open_file_dialog
+            toolbar, "打开", "打开文件 (Ctrl+O)", self._open_file_dialog
         )
 
         toolbar.addSeparator()
 
         # Navigation buttons group
-        self._add_action(toolbar, "⬅️ 上一章", "上一章 (←)", self.prev_chapter)
-        self._add_action(toolbar, "➡️ 下一章", "下一章 (→)", self.next_chapter)
+        self._add_action(toolbar, "上一章", "上一章 (←)", self.prev_chapter)
+        self._add_action(toolbar, "下一章", "下一章 (→)", self.next_chapter)
 
         toolbar.addSeparator()
 
         # View buttons group
-        self._add_action(toolbar, "📑 目录", "显示/隐藏目录 (Ctrl+T)", self._toggle_toc)
+        self._add_action(toolbar, "目录", "显示/隐藏目录 (Ctrl+T)", self._toggle_toc)
         self._add_action(
-            toolbar, "🖼️ 图片", "显示/隐藏图片 (Ctrl+I)", self._toggle_images
+            toolbar, "图片", "显示/隐藏图片 (Ctrl+I)", self._toggle_images
         )
 
         toolbar.addSeparator()
 
         # Formatting (managed by QAction)
         self._format_action = self._add_action(
-            toolbar, "📐 排版", "排版", self._open_format_dialog
+            toolbar, "排版", "排版", self._open_format_dialog
         )
         # Settings button - font selection becomes a dropdown
         self._font_action = self._add_action(
-            toolbar, "🔤 字体", "选择字体", self._choose_font
+            toolbar, "字体", "选择字体", self._choose_font
         )
         # Theme (managed by QAction, labels support trailing arrow)
         self._theme_action = self._add_action(
-            toolbar, "🎨 主题", "选择主题", self._open_theme_dialog
+            toolbar, "主题", "选择主题", self._open_theme_dialog
         )
 
         # Spacer
@@ -271,57 +272,17 @@ class MainWindow(QMainWindow):
 
         # Reading mode button (right side)
         self._reading_btn = self._add_action(
-            toolbar, "📖 阅读模式", "切换阅读模式 (Ctrl+M)", self._toggle_reading_mode
+            toolbar, "阅读模式", "切换阅读模式 (Ctrl+M)", self._toggle_reading_mode
         )
 
-    def _add_action(self, toolbar: QToolBar, full_text: str, tip: str, callback):
-        """Add a toolbar QAction (supports emoji icon and text toggling). Returns QAction."""
-        # Parse emoji (before the first space) and label (rest after emoji)
-        parts = full_text.split(" ", 1)
-        emoji = parts[0]
-        label = parts[1] if len(parts) > 1 else ""
-        # Create QAction and save base label and emoji for later refresh
+    def _add_action(self, toolbar: QToolBar, label: str, tip: str, callback) -> QAction:
+        """Add a toolbar QAction. Returns QAction."""
         action = toolbar.addAction(label, callback)
         assert action is not None
         action.setToolTip(tip)
-        try:
-            icon = self._emoji_icon(emoji, size=18)
-            action.setIcon(icon)
-        except Exception:
-            pass
-        # Save for display toggling (item, label, emoji)
-        self._toolbar_items.append((action, label, emoji))
+        # Save for display toggling (item, label)
+        self._toolbar_items.append((action, label))
         return action
-
-    def _emoji_icon(self, emoji: str, size: int = 18) -> QIcon:
-        """Render an emoji as QIcon for toolbar icons (cached)."""
-        # Create cache key including theme color since icons change with theme
-        fg_color = self._get_colors().get("fg", "#000000")
-        cache_key = f"{emoji}_{size}_{fg_color}"
-        
-        # Return cached icon if available
-        if cache_key in self._icon_cache:
-            return self._icon_cache[cache_key]
-        
-        # Generate and cache new icon
-        pix = QPixmap(size, size)
-        # Transparent background
-        pix.fill(Qt.GlobalColor.transparent)
-        painter = QPainter(pix)
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
-        painter.setRenderHint(QPainter.RenderHint.TextAntialiasing, True)
-        font = QFont(self.DEFAULT_FONT, max(1, int(size * 0.7)))
-        painter.setFont(font)
-        painter.setPen(QColor(fg_color))
-        painter.drawText(pix.rect(), Qt.AlignmentFlag.AlignCenter, emoji)
-        painter.end()
-        icon = QIcon(pix)
-        
-        # Cache the icon (limit cache size to prevent memory bloat)
-        if len(self._icon_cache) < 50:
-            self._icon_cache[cache_key] = icon
-        
-        return icon
 
     def _maybe_update_toolbar_compact(self) -> None:
         """Toggle toolbar display mode (icon only or icon+text) based on window width."""
@@ -349,31 +310,19 @@ class MainWindow(QMainWindow):
             return None
 
     def _refresh_toolbar_items(self) -> None:
-        """Refresh toolbar icons and labels (handle compact mode and theme changes)."""
-        for item, label, emoji in self._toolbar_items:
+        """Refresh toolbar labels (handle compact mode)."""
+        for item, label in self._toolbar_items:
             # Text handling
             if self._compact_mode:
                 self._safe(getattr(item, "setText", lambda *_: None), "")
             else:
                 if item is getattr(self, "_theme_action", None):
-                    name = THEMES.get(self._current_theme, THEMES["light"])["name"]
-                    if name and ord(name[0]) > 255:
-                        name = (
-                            name[2:] if len(name) > 2 and name[1] == " " else name[1:]
-                        )
-                    self._safe(getattr(item, "setText", lambda *_: None), name)
+                    self._safe(getattr(item, "setText", lambda *_: None), "主题")
                 elif item is getattr(self, "_reading_btn", None):
                     # Keep reading button label synchronized with reading state
                     self._safe(getattr(item, "setText", lambda *_: None), "阅读中" if self._reading_mode else label)
                 else:
                     self._safe(getattr(item, "setText", lambda *_: None), label)
-            # Icon handling (always refresh to reflect theme colors)
-            try:
-                icon = self._emoji_icon(emoji, size=18)
-            except Exception:
-                icon = None
-            if icon is not None:
-                self._safe(getattr(item, "setIcon", lambda *_: None), icon)
         # Ensure format action text aligns with compact mode
         fa = getattr(self, "_format_action", None)
         if fa is not None:
@@ -428,8 +377,7 @@ class MainWindow(QMainWindow):
         colors = THEMES.get(self._current_theme, THEMES["light"])
         self.setStyleSheet(get_stylesheet(colors))
         
-        # Clear caches as theme has changed
-        self._icon_cache.clear()
+        # Clear HTML style cache as theme has changed
         self._cached_html_style = None
         self._cached_style_key = None
         
@@ -515,14 +463,13 @@ class MainWindow(QMainWindow):
         menu = QMenu(self)
         for key, info in THEMES.items():
             name = info.get("name", key)
-            # Remove leading emoji (if any) for menu display
-            if name and ord(name[0]) > 255:
-                name = name[2:] if len(name) > 2 and name[1] == " " else name[1:]
             act = QAction(name, self)
             act.setData(key)
             act.setCheckable(False)
             act.triggered.connect(lambda checked=False, k=key: self._set_theme(k))
             menu.addAction(act)
+        menu.aboutToHide.connect(lambda: setattr(self, '_menu_open', False))
+        self._menu_open = True
         try:
             widget = self._toolbar.widgetForAction(self._theme_action)
             if widget:
@@ -545,12 +492,12 @@ class MainWindow(QMainWindow):
         from PyQt6.QtWidgets import QPushButton
 
         ops = [
-            ("Increase font size", self._zoom_in),
-            ("Decrease font size", self._zoom_out),
-            ("Increase line spacing", self._increase_line_spacing),
-            ("Decrease line spacing", self._decrease_line_spacing),
-            ("Increase paragraph spacing", self._increase_paragraph_spacing),
-            ("Decrease paragraph spacing", self._decrease_paragraph_spacing),
+            ("增大字号", self._zoom_in),
+            ("减小字号", self._zoom_out),
+            ("增加行间距", self._increase_line_spacing),
+            ("减小行间距", self._decrease_line_spacing),
+            ("增加段间距", self._increase_paragraph_spacing),
+            ("减小段间距", self._decrease_paragraph_spacing),
         ]
         for label, cb in ops:
             btn = QPushButton(label)
@@ -561,6 +508,8 @@ class MainWindow(QMainWindow):
             action.setDefaultWidget(btn)
             menu.addAction(action)
         # Pop up menu under toolbar button
+        menu.aboutToHide.connect(lambda: setattr(self, '_menu_open', False))
+        self._menu_open = True
         try:
             widget = self._toolbar.widgetForAction(self._format_action)
             if widget:
@@ -588,9 +537,10 @@ class MainWindow(QMainWindow):
 
         if success:
             self._last_opened = path
-            self.setWindowTitle(f"EPUB 阅读器 - {result}")
+            self.setWindowTitle(f"EPUB 酷读器 - {result}")
             self._update_toc()
             if self._loader.chapter_count() > 0:
+                # Ensure current chapter index is valid
                 self._current_chapter = min(
                     self._current_chapter, self._loader.chapter_count() - 1
                 )
@@ -653,7 +603,7 @@ class MainWindow(QMainWindow):
 
         For flattened TOCs the number of TOC entries may not match chapter count, so selecting by
         index alone can be misaligned. Prefer matching items that store a `chapter_idx`; if none
-        match, fall back to selecting by index (or the nearest valid item).
+        match, fall back to selecting the nearest TOC item based on chapter_idx.
         """
         count = self._toc_tree.topLevelItemCount()
         found_item = None
@@ -670,14 +620,33 @@ class MainWindow(QMainWindow):
                 found_item = it
                 break
 
-        # Fallback strategy: if no matching item is found, try selecting by index (if in range), otherwise select the last item
+        # Fallback: find the nearest TOC item based on chapter_idx
         if not found_item and count > 0:
-            if 0 <= self._current_chapter < count:
-                found_item = self._toc_tree.topLevelItem(self._current_chapter)
-            else:
-                # Select the nearest valid item
-                idx = max(0, min(count - 1, self._current_chapter))
-                found_item = self._toc_tree.topLevelItem(idx)
+            best_item = None
+            best_diff = float('inf')
+            
+            for i in range(count):
+                it = self._toc_tree.topLevelItem(i)
+                if it is None:
+                    continue
+                
+                chapter_idx = it.data(0, Qt.ItemDataRole.UserRole)
+                if chapter_idx is None:
+                    continue
+                
+                # Find the TOC item with smallest positive difference (current >= chapter_idx)
+                # This means: show the latest chapter that we've already passed
+                if self._current_chapter >= chapter_idx:
+                    diff = self._current_chapter - chapter_idx
+                    if diff < best_diff:
+                        best_diff = diff
+                        best_item = it
+            
+            # If current chapter is before all TOC items, select the first TOC item
+            if best_item is None:
+                best_item = self._toc_tree.topLevelItem(0)
+            
+            found_item = best_item
 
         if found_item:
             self._toc_tree.setCurrentItem(found_item)
@@ -834,12 +803,6 @@ class MainWindow(QMainWindow):
     def _toggle_reading_mode(self) -> None:
         self._reading_mode = not self._reading_mode
         if self._reading_btn:
-            # Toggle icon and label (show open book when reading, closed when not)
-            try:
-                icon = self._emoji_icon("📖" if self._reading_mode else "📕", size=18)
-                self._reading_btn.setIcon(icon)
-            except Exception:
-                pass
             self._reading_btn.setText("阅读中" if self._reading_mode else "阅读模式")
             self._reading_btn.setToolTip(
                 "关闭阅读模式" if self._reading_mode else "开启阅读模式 (Ctrl+M)"
@@ -848,15 +811,16 @@ class MainWindow(QMainWindow):
         status_bar = self.statusBar()
         if status_bar:
             if self._reading_mode:
-                status_bar.showMessage("📖 阅读模式已开启 - 左键下一章，右键上一章")
+                status_bar.showMessage("阅读模式已开启 - 左键下一章，右键上一章")
             else:
-                status_bar.showMessage("📕 阅读模式已关闭")
+                status_bar.showMessage("阅读模式已关闭")
         self._save_settings()
 
     def _choose_font(self) -> None:
         # Implement font selection with a dropdown (includes search)
         if not hasattr(self, "_font_menu"):
             self._create_font_menu()
+        self._menu_open = True
         try:
             widget = self._toolbar.widgetForAction(self._font_action)
             if widget:
@@ -869,6 +833,7 @@ class MainWindow(QMainWindow):
     def _create_font_menu(self) -> None:
         self._font_menu = QMenu(self)
         self._make_menu_compact(self._font_menu)
+        self._font_menu.aboutToHide.connect(lambda: setattr(self, '_menu_open', False))
         container = QWidget()
         # Reduce container padding for compact display
         container.setStyleSheet("QWidget { padding: 0px; margin: 0px; }")
@@ -994,11 +959,6 @@ class MainWindow(QMainWindow):
         self._toc_widget.setVisible(self._toc_visible)
 
         if self._reading_btn:
-            try:
-                icon = self._emoji_icon("📗" if self._reading_mode else "📕", size=18)
-                self._reading_btn.setIcon(icon)
-            except Exception:
-                pass
             self._reading_btn.setText("阅读中" if self._reading_mode else "阅读模式")
 
         if "window_geometry" in data:
@@ -1006,10 +966,10 @@ class MainWindow(QMainWindow):
 
             self.restoreGeometry(QByteArray.fromHex(data["window_geometry"].encode()))
 
-    def resizeEvent(self, event) -> None:
-        super().resizeEvent(event)
+    def resizeEvent(self, a0) -> None:
+        super().resizeEvent(a0)
         self._maybe_update_toolbar_compact()
 
-    def closeEvent(self, event) -> None:
+    def closeEvent(self, a0) -> None:
         self._save_settings()
-        event.accept()
+        a0.accept()

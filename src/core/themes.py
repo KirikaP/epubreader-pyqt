@@ -5,7 +5,7 @@ from typing import Dict
 # Theme definitions (extensible color config dict)
 THEMES: Dict[str, dict] = {
     "light": {
-        "name": "DayDefault",
+        "name": "浅色",
         "bg": "#f5f5f5",
         "fg": "#333333",
         "toolbar_bg": "#ffffff",
@@ -25,7 +25,7 @@ THEMES: Dict[str, dict] = {
         "shadow": "rgba(0,0,0,0.1)",
     },
     "dark": {
-        "name": "NightDefault",
+        "name": "深色",
         "bg": "#1e1e1e",
         "fg": "#e0e0e0",
         "toolbar_bg": "#252526",
@@ -45,7 +45,7 @@ THEMES: Dict[str, dict] = {
         "shadow": "rgba(0,0,0,0.3)",
     },
     "sepia": {
-        "name": "RetroBeige",
+        "name": "复古",
         "bg": "#f5f0e6",
         "fg": "#5c4b37",
         "toolbar_bg": "#faf6ed",
@@ -65,7 +65,7 @@ THEMES: Dict[str, dict] = {
         "shadow": "rgba(92,75,55,0.1)",
     },
     "green": {
-        "name": "EyeComfortGreen",
+        "name": "护眼绿",
         "bg": "#e8f5e9",
         "fg": "#1b5e20",
         "toolbar_bg": "#f1f8e9",
